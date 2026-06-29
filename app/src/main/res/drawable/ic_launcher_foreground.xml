@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Calculator icon: display bar + "÷" symbol -->
+    <rect
+        android:x="24"
+        android:y="22"
+        android:width="60"
+        android:height="10"
+        android:fill="#FF9F0A" />
+    <text
+        android:x="54"
+        android:y="72"
+        android:textSize="42"
+        android:textAlign="center"
+        android:fill="#FF9F0A">÷</text>
+</vector>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Specifies the rules applied when extracting data during D2D operations.
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Add includes/excludes for cloud backup here. -->
+    </cloud-backup>
+    <!--
+    <device-transfer>
+        <include .../>
+    </device-transfer>
+    -->
+</data-extraction-rules>
