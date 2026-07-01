@@ -22,6 +22,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.positionChange
+import kotlin.math.abs
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -230,26 +235,26 @@ private enum class SqrtMode {
 }
 
 private fun loadGestureTypingEnabled(context: Context): Boolean {
-    val prefs = context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
-    return prefs.getBoolean(GESTURE_TYPING_KEY, true)
+    val prefs = context.getSharedPreferences(CalculatorState.SETTINGS_PREFS, Context.MODE_PRIVATE)
+    return prefs.getBoolean(CalculatorState.GESTURE_TYPING_KEY, true)
 }
 
 private fun saveGestureTypingEnabled(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+    context.getSharedPreferences(CalculatorState.SETTINGS_PREFS, Context.MODE_PRIVATE)
         .edit()
-        .putBoolean(GESTURE_TYPING_KEY, enabled)
+        .putBoolean(CalculatorState.GESTURE_TYPING_KEY, enabled)
         .apply()
 }
 
 private fun loadShortcutThreshold(context: Context): Int {
-    val prefs = context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
-    return prefs.getInt(SHORTCUT_THRESHOLD_KEY, 5)
+    val prefs = context.getSharedPreferences(CalculatorState.SETTINGS_PREFS, Context.MODE_PRIVATE)
+    return prefs.getInt(CalculatorState.SHORTCUT_THRESHOLD_KEY, 5)
 }
 
 private fun saveShortcutThreshold(context: Context, threshold: Int) {
-    context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+    context.getSharedPreferences(CalculatorState.SETTINGS_PREFS, Context.MODE_PRIVATE)
         .edit()
-        .putInt(SHORTCUT_THRESHOLD_KEY, threshold)
+        .putInt(CalculatorState.SHORTCUT_THRESHOLD_KEY, threshold)
         .apply()
 }
 
@@ -274,7 +279,7 @@ private fun saveSqrtMode(context: Context, mode: SqrtMode) {
 // ---------------------------------------------------------------------------
 
 private const val VARS_PREFS = "user_vars_prefs"
-internal val VAR_NAMES = (1..10).map { "var$it" }           // "var1".."var10"
+internal val VAR_NAMES = (1..10).map { "v$it" }           // "v1".."v10"
 internal const val ANS_VAR = "ans"
 
 // Tokens used in expressions, e.g. "$var1", "$ans"
@@ -283,9 +288,17 @@ internal fun varToken(name: String) = "\$$name"
 private fun loadAllVariables(context: Context): MutableMap<String, Double?> {
     val prefs = context.getSharedPreferences(VARS_PREFS, Context.MODE_PRIVATE)
     val map = mutableMapOf<String, Double?>()
-    (VAR_NAMES + ANS_VAR).forEach { name ->
+
+    listOf("v1", "v2", "v3").forEach { name ->
         map[name] = prefs.getString(name, null)?.toDoubleOrNull()
     }
+
+    (VAR_NAMES + ANS_VAR).forEach { name ->
+        if (name !in map) {
+            map[name] = prefs.getString(name, null)?.toDoubleOrNull()
+        }
+    }
+
     return map
 }
 
@@ -304,8 +317,11 @@ private const val SHORTCUTS_PREFS = "user_shortcuts_prefs"
 private fun loadShortcuts(context: Context): MutableMap<String, String> {
     val prefs = context.getSharedPreferences(SHORTCUTS_PREFS, Context.MODE_PRIVATE)
     val map = mutableMapOf<String, String>()
+
+    map["s1"] = prefs.getString("s1", "") ?: ""
+
     prefs.all.forEach { (key, value) ->
-        if (value is String) map[key] = value
+        if (value is String && key !in map) map[key] = value
     }
     return map
 }
@@ -410,8 +426,9 @@ class CalculatorViewModel(app: Application) : AndroidViewModel(app) {
     var shortcutThreshold by mutableStateOf(5)
 
     init {
-        variables.putAll(loadAllVariables(ctx))
-        shortcuts.putAll(loadShortcuts(ctx))
+        variables.putAll(CalculatorState.loadAllVariables(ctx))
+        shortcuts.putAll(CalculatorState.loadShortcuts(ctx))
+        
         isGestureTypingEnabled = loadGestureTypingEnabled(ctx)
         shortcutThreshold = loadShortcutThreshold(ctx)
     }
@@ -420,7 +437,14 @@ class CalculatorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setVariable(name: String, value: Double?) {
         variables[name] = value
-        persistVariable(ctx, name, value)
+        val editor = ctx.getSharedPreferences(CalculatorState.VARS_PREFS, Context.MODE_PRIVATE).edit()
+        if (value == null) editor.remove(name) else editor.putString(name, value.toBigDecimal().toPlainString())
+        editor.apply()
+    }
+    
+    fun removeVariable(name: String) {
+        variables.remove(name)
+        ctx.getSharedPreferences(CalculatorState.VARS_PREFS, Context.MODE_PRIVATE).edit().remove(name).apply()
     }
 
     fun setShortcut(name: String, value: String?) {
@@ -429,7 +453,10 @@ class CalculatorViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             shortcuts[name] = value
         }
-        persistShortcut(ctx, name, value)
+        val editor = ctx.getSharedPreferences(CalculatorState.SHORTCUTS_PREFS, Context.MODE_PRIVATE).edit()
+        if (value == null) editor.remove(name) else editor.putString(name, value)
+        editor.apply()
+
         if (value != null && suggestedShortcut == value) {
             suggestedShortcut = null
             historyManager.clearFrequency(value)
@@ -442,27 +469,21 @@ class CalculatorViewModel(app: Application) : AndroidViewModel(app) {
         suggestedShortcut = null
     }
 
-    /** Insert a variable token (e.g. "$var1") into the expression. */
-    fun insertVariable(varName: String) {
-        val token = varToken(varName)
-        if (shouldReplaceOnNextInput) {
-            expression = token
-            shouldReplaceOnNextInput = false
-        } else {
-            expression += token
-        }
+    private fun appendToExpression(text: String) {
+        expression += text
         display = expression
+    }
+
+
+    /** Insert a variable token (e.g. "$v1") into the expression. */
+    fun insertVariable(varName: String) {
+        appendToExpression(varToken(varName))
+        shouldReplaceOnNextInput = false
     }
     
     fun insertShortcut(name: String) {
-        val token = varToken(name)
-        if (shouldReplaceOnNextInput) {
-            expression = token
-            shouldReplaceOnNextInput = false
-        } else {
-            expression += token
-        }
-        display = expression
+        appendToExpression(varToken(name))
+        shouldReplaceOnNextInput = false
     }
 
     /** Insert the assignment operator " = " into the expression. */
@@ -588,13 +609,13 @@ class CalculatorViewModel(app: Application) : AndroidViewModel(app) {
                 val isNumericStart = key.firstOrNull()?.isDigit() == true || key == "."
                 if (shouldReplaceOnNextInput && isNumericStart) {
                     expression = if (key == ".") "0." else key
-                    shouldReplaceOnNextInput = false
                 } else {
-                    if (key == "." && (expression.isEmpty() || expression.last() in setOf('+', '-', '×', '÷', '^'))) {
+                    if (key == "." && (expression.isEmpty() || expression.last() in setOf('+', '-', '×', '÷', '^', '('))) {
                         expression += "0"
                     }
                     expression += key
                 }
+                shouldReplaceOnNextInput = false
                 display = expression
             }
         }
@@ -608,9 +629,11 @@ class CalculatorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun appendSqrtToEnd() {
+        if (shouldReplaceOnNextInput) {
+            shouldReplaceOnNextInput = false
+        }
         expression += "√"
         display = expression
-        shouldReplaceOnNextInput = false
     }
 
     /** Load the previous expression back into the input without evaluating it. */
@@ -720,7 +743,7 @@ class CalculatorViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun isValidVarName(name: String): Boolean {
         if (name == ANS_VAR) return true
-        val n = name.removePrefix("var").toIntOrNull() ?: return false
+        val n = name.removePrefix("v").toIntOrNull() ?: return false
         return n in 1..10
     }
 
@@ -847,27 +870,6 @@ fun CalculatorScreen(vm: CalculatorViewModel = viewModel()) {
             }
         }
 
-        // ── Previous expression ── Outside scrollable elements
-        val prevExpr = vm.previousExpression
-        if (prevExpr != null && selectedTab == MainTab.Calculator) {
-            Text(
-                text = prevExpr,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() }
-                    ) { vm.loadPreviousExpression() }
-                    .padding(horizontal = 4.dp),
-                color = AppGrayMuted,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.End,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
         // ── Shortcut Suggestion ────────────────────────────────────────────
         val suggestion = vm.suggestedShortcut
         if (suggestion != null) {
@@ -944,6 +946,27 @@ private fun ColumnScope.CalculatorTabContent(
                 .padding(18.dp),
             contentAlignment = Alignment.BottomEnd
         ) {
+            // ── Previous expression ── Outside scrollable elements
+            val prevExpr = vm.previousExpression
+            if (prevExpr != null) {
+                Text(
+                    text = prevExpr,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { vm.loadPreviousExpression() }
+                        .padding(horizontal = 4.dp),
+                    color = AppGrayMuted,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1005,17 +1028,36 @@ private fun ColumnScope.CalculatorTabContent(
                 .pointerInput(vm.isGestureTypingEnabled) {
                     if (!vm.isGestureTypingEnabled) return@pointerInput
                     var lastButton: String? = null
+                    var lastTime = 0L
+                    
                     detectDragGestures(
-                        onDragStart = { lastButton = null },
+                        onDragStart = { lastButton = null; lastTime = System.currentTimeMillis() },
                         onDragEnd = { lastButton = null },
                         onDragCancel = { lastButton = null },
                         onDrag = { change, _ ->
+                            val currentTime = System.currentTimeMillis()
                             val windowPos = containerPosition + change.position
                             val hit = vm.buttonBounds.entries.find { it.value.contains(windowPos) }
-                            if (hit != null && hit.key != lastButton) {
-                                vm.onKey(hit.key)
-                                lastButton = hit.key
+                            
+                            if (hit != null) {
+                                if (hit.key != lastButton) {
+                                    // It's a new button. 
+                                    // To simulate "holding pressure", we only register if moving slow enough?
+                                    // Or better: the user must "pause" slightly on a key.
+                                    // Actually, "pressure" in terms of touch is not reliable on all screens.
+                                    // We will use velocity or time-spent.
+                                    
+                                    // If swipe is FAST, don't register.
+                                    val velocity = change.positionChange().getDistance() / (currentTime - lastTime).coerceAtLeast(1)
+                                    if (velocity < 0.5f) { // threshold for "intent" vs "swipe-over"
+                                         vm.onKey(hit.key)
+                                         lastButton = hit.key
+                                    }
+                                }
+                            } else {
+                                lastButton = null
                             }
+                            lastTime = currentTime
                         }
                     )
                 }
@@ -1141,11 +1183,11 @@ private fun VariableChipRow(vm: CalculatorViewModel) {
             onClick = { vm.insertVariable(ANS_VAR) }
         )
 
-        // $var1..$var10
-        VAR_NAMES.forEachIndexed { index, name ->
+        // Existing variables
+        vm.variables.keys.filter { it != ANS_VAR }.sortedBy { it.removePrefix("v").toIntOrNull() ?: 99 }.forEach { name ->
             val value = vm.variables[name]
             VariableChip(
-                chipLabel = "\$${index + 1}",
+                chipLabel = "\$$name",
                 valueLabel = if (value != null) formatNumber(value) else "—",
                 isAns = false,
                 onClick = { vm.insertVariable(name) }
@@ -1352,25 +1394,40 @@ private fun UserSettingsTabContent(
         Spacer(Modifier.height(4.dp))
 
         // ── Variables section ──────────────────────────────────────────────
-        Text("Variables", color = AppBlackSoft, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Variables", color = AppBlackSoft, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            if (vm.variables.size - 1 < 10) { // exclude ans
+                TextButton(onClick = {
+                    val nextNum = (1..10).firstOrNull { "v$it" !in vm.variables } ?: return@TextButton
+                    vm.setVariable("v$nextNum", null)
+                }) {
+                    Text("+ Add variable", color = AppGreen, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
 
         Text(
             text = "Tap a variable chip on the calculator to insert it into an expression. " +
-                    "Use the = chip to write an assignment like \$var1 = 10.",
+                    "Use the = chip to write an assignment like \$v1 = 10.",
             color = AppGrayMuted,
             fontSize = 13.sp
         )
 
-        VAR_NAMES.forEachIndexed { index, name ->
+        vm.variables.keys.filter { it != ANS_VAR }.sortedBy { it.removePrefix("v").toIntOrNull() ?: 99 }.forEach { name ->
             VariableEditorRow(
-                label = "\$var${index + 1}",
-                value = variables[name],
-                onSave = { onVariableSet(name, it) }
+                label = "\$$name",
+                value = vm.variables[name],
+                onSave = { vm.setVariable(name, it) },
+                onDelete = if (vm.variables.size > 2) { { vm.removeVariable(name) } } else null
             )
         }
 
         // $ans — read-only, auto-set by calculations
-        val ansValue = variables[ANS_VAR]
+        val ansValue = vm.variables[ANS_VAR]
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1414,7 +1471,23 @@ private fun UserSettingsTabContent(
         Spacer(Modifier.height(4.dp))
 
         // ── Shortcuts section ──────────────────────────────────────────────
-        Text("Shortcuts", color = AppBlackSoft, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Shortcuts", color = AppBlackSoft, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            if (vm.shortcuts.size < 10) {
+                TextButton(onClick = {
+                    // Open a dialog or just add an empty one?
+                    // Let's add an empty one with a unique name
+                    val nextNum = (1..10).firstOrNull { "s$it" !in vm.shortcuts } ?: return@TextButton
+                    vm.setShortcut("s$nextNum", "")
+                }) {
+                    Text("+ Add shortcut", color = AppGreen, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1447,6 +1520,10 @@ private fun UserSettingsTabContent(
             ShortcutEditorRow(
                 name = name,
                 value = value,
+                onSave = { newName, newVal ->
+                    if (newName != name) vm.setShortcut(name, null)
+                    vm.setShortcut(newName, newVal)
+                },
                 onDelete = { vm.setShortcut(name, null) }
             )
         }
@@ -1457,28 +1534,53 @@ private fun UserSettingsTabContent(
 private fun ShortcutEditorRow(
     name: String,
     value: String,
+    onSave: (String, String) -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
+    var editName by remember(name) { mutableStateOf(name) }
+    var editValue by remember(value) { mutableStateOf(value) }
+    
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(AppWhite)
             .border(1.dp, AppGrayBorder, RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("\$$name", color = AppBlack, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(value, color = AppGrayMuted, fontSize = 13.sp)
-        }
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete shortcut",
-                tint = Color.Red.copy(alpha = 0.6f)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("\$", fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = editName,
+                onValueChange = { editName = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Name") },
+                singleLine = true
             )
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, "Delete", tint = Color.Red.copy(alpha = 0.6f))
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = editValue,
+                onValueChange = { editValue = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Equation fragment") },
+                singleLine = true
+            )
+            TextButton(onClick = { onSave(editName, editValue) }) {
+                Text("Save", color = AppGreen, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -1487,7 +1589,8 @@ private fun ShortcutEditorRow(
 private fun VariableEditorRow(
     label: String,
     value: Double?,
-    onSave: (Double?) -> Unit
+    onSave: (Double?) -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     var text by remember(value) { mutableStateOf(value?.let { formatNumber(it) } ?: "") }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -1546,6 +1649,12 @@ private fun VariableEditorRow(
             modifier = Modifier.wrapContentWidth()
         ) {
             Text("Set", color = AppGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+        
+        if (onDelete != null) {
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, "Delete", tint = Color.Red.copy(alpha = 0.6f))
+            }
         }
     }
 }

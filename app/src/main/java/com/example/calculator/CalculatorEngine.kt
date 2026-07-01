@@ -40,14 +40,29 @@ object CalculatorEngine {
 
     private fun expandShortcuts(expr: String, shortcuts: Map<String, String>): String {
         var currentExpr = expr
-        // Expand shortcuts iteratively in case of nested shortcuts (max 10 depth to prevent recursion)
+        val shortcutNames = shortcuts.keys.sortedByDescending { it.length }
+
+        // Expand shortcuts iteratively in case of nested shortcuts (max 10 depth to prevent recursion).
+        // Match whole shortcut tokens only so names like s1 do not accidentally replace parts of s10.
         for (i in 0 until 10) {
             var expanded = false
-            for ((name, value) in shortcuts) {
+            for (name in shortcutNames) {
+                val value = shortcuts[name] ?: continue
                 val token = "\$$name"
-                if (currentExpr.contains(token)) {
-                    currentExpr = currentExpr.replace(token, "($value)")
-                    expanded = true
+                var searchStart = 0
+                while (true) {
+                    val index = currentExpr.indexOf(token, searchStart)
+                    if (index < 0) break
+
+                    val endIndex = index + token.length
+                    val nextChar = currentExpr.getOrNull(endIndex)
+                    if (nextChar == null || !nextChar.isLetterOrDigit()) {
+                        currentExpr = currentExpr.substring(0, index) + value + currentExpr.substring(endIndex)
+                        expanded = true
+                        searchStart = index + value.length
+                    } else {
+                        searchStart = endIndex
+                    }
                 }
             }
             if (!expanded) break
@@ -188,5 +203,5 @@ object CalculatorEngine {
     }
 
     private fun String.startsImplicitMultiplication(): Boolean =
-        this == "(" || this == "√" || firstOrNull()?.isDigit() == true || this == "."
+        this == "(" || this == "√" || firstOrNull()?.isDigit() == true || this == "." || startsWith("$")
 }
