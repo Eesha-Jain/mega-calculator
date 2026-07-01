@@ -1,0 +1,45 @@
+﻿EXCEPTION: Unable to read data from the transport connection: An existing connection was forcibly closed by the remote host..
+
+  System.IO.IOException
+
+     at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+     at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+     at System.Net.Security.SslStream.EnsureFullTlsFrameAsync[TIOAdapter](CancellationToken cancellationToken, Int32 estimatedSize)
+     at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
+     at System.Net.Security.SslStream.ReadAsyncInternal[TIOAdapter](Memory`1 buffer, CancellationToken cancellationToken)
+     at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
+     at System.Net.Http.HttpConnection.FillAsync(Boolean async)
+     at System.Net.Http.HttpConnection.ChunkedEncodingReadStream.ReadAsyncCore(Memory`1 buffer, CancellationToken cancellationToken)
+     at System.ClientModel.Internal.ReadTimeoutStream.ReadAsync(Byte[] buffer, Int32 offset, Int32 count, CancellationToken cancellationToken)
+     at CyCoD.Helpers.TeeStream.ReadAsync(Memory`1 buffer, CancellationToken cancellationToken) in C:\Users\eesha\Documents\cycod\src\cycod\Helpers\TeeStream.cs:line 60
+     at System.Net.ServerSentEvents.SseParser`1.FillLineBufferAsync(CancellationToken cancellationToken)
+     at System.Net.ServerSentEvents.SseParser`1.EnumerateAsync(CancellationToken cancellationToken)+MoveNext()
+     at System.Net.ServerSentEvents.SseParser`1.EnumerateAsync(CancellationToken cancellationToken)+System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult()
+     at OpenAI.AsyncSseUpdateCollection`1.AsyncSseUpdateEnumerator`1.System.Collections.Generic.IAsyncEnumerator<U>.MoveNextAsync()
+     at OpenAI.AsyncSseUpdateCollection`1.GetValuesFromPageAsync(ClientResult page)+MoveNext()
+     at OpenAI.AsyncSseUpdateCollection`1.GetValuesFromPageAsync(ClientResult page)+MoveNext()
+     at OpenAI.AsyncSseUpdateCollection`1.GetValuesFromPageAsync(ClientResult page)+System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult()
+     at System.ClientModel.AsyncCollectionResult`1.GetAsyncEnumerator(CancellationToken cancellationToken)+MoveNext()
+     at System.ClientModel.AsyncCollectionResult`1.GetAsyncEnumerator(CancellationToken cancellationToken)+MoveNext()
+     at System.ClientModel.AsyncCollectionResult`1.GetAsyncEnumerator(CancellationToken cancellationToken)+MoveNext()
+     at System.ClientModel.AsyncCollectionResult`1.GetAsyncEnumerator(CancellationToken cancellationToken)+System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult()
+     at Microsoft.Extensions.AI.OpenAIChatClient.FromOpenAIStreamingChatCompletionAsync(IAsyncEnumerable`1 updates, ChatCompletionOptions options, CancellationToken cancellationToken)+MoveNext()
+     at Microsoft.Extensions.AI.OpenAIChatClient.FromOpenAIStreamingChatCompletionAsync(IAsyncEnumerable`1 updates, ChatCompletionOptions options, CancellationToken cancellationToken)+MoveNext()
+     at Microsoft.Extensions.AI.OpenAIChatClient.FromOpenAIStreamingChatCompletionAsync(IAsyncEnumerable`1 updates, ChatCompletionOptions options, CancellationToken cancellationToken)+System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult()
+     at ResponsesFirstChatClient.GetStreamingResponseAsync(IEnumerable`1 messages, ChatOptions options, CancellationToken cancellationToken)+MoveNext() in C:\Users\eesha\Documents\cycod\src\cycod\ChatClient\ResponsesFirstChatClient.cs:line 67
+     at ResponsesFirstChatClient.GetStreamingResponseAsync(IEnumerable`1 messages, ChatOptions options, CancellationToken cancellationToken)+MoveNext() in C:\Users\eesha\Documents\cycod\src\cycod\ChatClient\ResponsesFirstChatClient.cs:line 67
+     at ResponsesFirstChatClient.GetStreamingResponseAsync(IEnumerable`1 messages, ChatOptions options, CancellationToken cancellationToken)+System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult()
+     at AIStreamingStage.ExecuteAsync(ChatPipeline pipeline, ChatContext context) in C:\Users\eesha\Documents\cycod\src\cycod\ChatPipeline\Stages\AIStreamingStage.cs:line 40
+     at AIStreamingStage.ExecuteAsync(ChatPipeline pipeline, ChatContext context) in C:\Users\eesha\Documents\cycod\src\cycod\ChatPipeline\Stages\AIStreamingStage.cs:line 40
+     at InterruptMonitoringStage.ExecuteAsync(ChatPipeline pipeline, ChatContext context) in C:\Users\eesha\Documents\cycod\src\cycod\ChatPipeline\Stages\InterruptMonitoringStage.cs:line 44
+     at ChatPipeline.ExecuteAsync(ChatContext context) in C:\Users\eesha\Documents\cycod\src\cycod\ChatPipeline\ChatPipeline.cs:line 175
+     at FunctionCallingChat.CompleteChatStreamingAsync(String userPrompt, IEnumerable`1 imageFiles, CancellationToken cancellationToken, Action`1 messageCallback, Action`1 streamingCallback, Func`3 approveFunctionCall, Action`3 functionCallCallback) in C:\Users\eesha\Documents\cycod\src\cycod\ChatClient\FunctionCallingChat.cs:line 128
+     at ChatCommand.CompleteChatStreamingAsync(FunctionCallingChat chat, String userPrompt, IEnumerable`1 imageFiles, CancellationToken cancellationToken, Action`1 messageCallback, Action`1 streamingCallback, Func`3 approveFunctionCall, Action`3 functionCallCallback) in C:\Users\eesha\Documents\cycod\src\cycod\CommandLineCommands\ChatCommand.cs:line 928
+     at ChatCommand.ExecuteAsync(Boolean interactive) in C:\Users\eesha\Documents\cycod\src\cycod\CommandLineCommands\ChatCommand.cs:line 392
+     at ChatCommand.ExecuteAsync(Boolean interactive) in C:\Users\eesha\Documents\cycod\src\cycod\CommandLineCommands\ChatCommand.cs:line 534
+     at ProgramRunner.<>c__DisplayClass3_0.<<WrapRunAndRelease>b__0>d.MoveNext() in C:\Users\eesha\Documents\cycod\src\common\ProgramRunner.cs:line 171
+  --- End of stack trace from previous location ---
+     at ProgramRunner.<>c__DisplayClass3_0.<<WrapRunAndRelease>b__0>d.MoveNext() in C:\Users\eesha\Documents\cycod\src\common\ProgramRunner.cs:line 187
+  --- End of stack trace from previous location ---
+     at ProgramRunner.DoProgram(String[] args) in C:\Users\eesha\Documents\cycod\src\common\ProgramRunner.cs:line 155
+     at ProgramRunner.RunProgramAsync(String[] args) in C:\Users\eesha\Documents\cycod\src\common\ProgramRunner.cs:line 19

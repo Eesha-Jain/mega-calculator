@@ -4,17 +4,32 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Calculator icon: display bar + "÷" symbol -->
-    <rect
-        android:x="24"
-        android:y="22"
-        android:width="60"
-        android:height="10"
-        android:fill="#FF9F0A" />
-    <text
-        android:x="54"
-        android:y="72"
-        android:textSize="42"
-        android:textAlign="center"
-        android:fill="#FF9F0A">÷</text>
+
+    <path
+        android:fillColor="#0E3B2E"
+        android:pathData="M18,8 L90,8 C96,8 100,12 100,18 L100,90 C100,96 96,100 90,100 L18,100 C12,100 8,96 8,90 L8,18 C8,12 12,8 18,8 Z"/>
+
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="-10">
+
+        <path
+            android:fillColor="#1F2429"
+            android:pathData="M28,18 L76,18 C80.4,18 84,21.6 84,26 L84,86 C84,90.4 80.4,94 76,94 L28,94 C23.6,94 20,90.4 20,86 L20,26 C20,21.6 23.6,18 28,18 Z"/>
+
+        <path
+            android:fillColor="#E8F8DD"
+            android:pathData="M28,24 L76,24 L76,38 L28,38 Z"/>
+
+        <!-- keypad -->
+        <path android:fillColor="#3A4047" android:pathData="M28,44 L40,44 L40,56 L28,56 Z"/>
+        <path android:fillColor="#3A4047" android:pathData="M44,44 L56,44 L56,56 L44,56 Z"/>
+        <path android:fillColor="#3A4047" android:pathData="M28,60 L40,60 L40,72 L28,72 Z"/>
+        <path android:fillColor="#3A4047" android:pathData="M44,60 L56,60 L56,72 L44,72 Z"/>
+        <path android:fillColor="#3A4047" android:pathData="M28,76 L56,76 L56,88 L28,88 Z"/>
+
+        <path android:fillColor="#58D85A" android:pathData="M60,44 L76,44 L76,56 L60,56 Z"/>
+        <path android:fillColor="#58D85A" android:pathData="M60,60 L76,60 L76,88 L60,88 Z"/>
+    </group>
 </vector>
